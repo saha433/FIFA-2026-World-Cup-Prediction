@@ -1,4 +1,4 @@
-# FIFA 2026 ML Predictor
+# FIFA-2026-World-Cup-Prediction
 
 This project trains leakage-safe football models on historical international
 matches and estimates each 2026 World Cup team's title probability through
@@ -74,4 +74,4 @@ squad strength, group views, team detail panels and model backtest results.
   dates after December 2025 and is not reliable for June 2026 availability.
 - Predictions should be refreshed after final squads, injuries and the final
   pre-tournament matches are available.
-# FIFA-2026-World-Cup-Prediction
+
