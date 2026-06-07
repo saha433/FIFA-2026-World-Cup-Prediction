@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07110e">
+  <title>World Cup 2026 Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Forecast home">
+      <span class="brand-mark">26</span>
+      <span>WORLD<br>CUP LAB</span>
+    </a>
+    <nav aria-label="Dashboard sections">
+      <a href="#forecast">Forecast</a>
+      <a href="#squads">Squads</a>
+      <a href="#groups">Groups</a>
+      <a href="#method">Method</a>
+    </nav>
+    <div class="live-pill"><i></i> MODEL LIVE</div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">2026 FIFA WORLD CUP / ML FORECAST</p>
+        <h1>WHO LIFTS<br>THE <em>CUP?</em></h1>
+        <p class="hero-intro">A squad-aware forecast trained on 49,000+ international matches, current Elo strength, player quality, form and market depth.</p>
+        <div class="hero-actions">
+          <a class="primary-button" href="#forecast">Explore forecast <span>↘</span></a>
+          <button class="text-button" id="methodButton">How it works <span>+</span></button>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="orbit orbit-one"></div>
+        <div class="orbit orbit-two"></div>
+        <div class="winner-card">
+          <p>MODEL FAVORITE</p>
+          <div class="winner-rank">01</div>
+          <h2 id="heroWinner">Spain</h2>
+          <div class="winner-probability" id="heroProbability">34.38<span>%</span></div>
+          <div class="winner-meta">
+            <span id="heroSquad">84.73 squad</span>
+            <span id="heroElo">2165 Elo</span>
+          </div>
+        </div>
+        <div class="floating-stat stat-a"><span>50K</span> simulations</div>
+        <div class="floating-stat stat-b"><span>48</span> nations</div>
+      </div>
+    </section>
+
+    <section class="ticker" aria-label="Top forecast ticker">
+      <div id="tickerTrack"></div>
+    </section>
+
+    <section class="dashboard-section" id="forecast">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">01 / TITLE PROBABILITY</p>
+          <h2>THE CONTENDERS</h2>
+        </div>
+        <p>Click any nation to open its model profile. Compare squad-aware probabilities against the team-performance baseline.</p>
+      </div>
+
+      <div class="controls">
+        <div class="filter-group" id="confederationFilters" aria-label="Filter by confederation"></div>
+        <label class="search-field">
+          <span>⌕</span>
+          <input id="teamSearch" type="search" placeholder="Search nation" aria-label="Search nation">
+        </label>
+      </div>
+
+      <div class="forecast-layout">
+        <article class="chart-panel">
+          <div class="panel-header">
+            <div>
+              <p>WIN PROBABILITY</p>
+              <h3>Top nations</h3>
+            </div>
+            <label class="switch">
+              <input id="baselineToggle" type="checkbox">
+              <span></span>
+              Show baseline
+            </label>
+          </div>
+          <div class="bar-chart" id="probabilityChart"></div>
+        </article>
+
+        <article class="table-panel">
+          <div class="panel-header">
+            <div>
+              <p>FULL FIELD</p>
+              <h3>Power ranking</h3>
+            </div>
+            <span class="mono" id="visibleCount">48 teams</span>
+          </div>
+          <div class="ranking-table" id="rankingTable"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-section split-section" id="squads">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / PLAYER QUALITY</p>
+          <h2>SQUAD<br>INTELLIGENCE</h2>
+        </div>
+        <p>A position-balanced XI, 26-player depth, elite talent, market value and current club form shift the team-only forecast.</p>
+      </div>
+      <div class="squad-grid">
+        <article class="spotlight-card" id="squadSpotlight"></article>
+        <article class="scatter-panel">
+          <div class="panel-header">
+            <div><p>STRENGTH MAP</p><h3>Elo vs squad depth</h3></div>
+            <span class="legend"><i></i> title chance</span>
+          </div>
+          <div id="scatterPlot" class="scatter-plot"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-section" id="groups">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">03 / GROUP STAGE</p>
+          <h2>THE DRAW</h2>
+        </div>
+        <p>Explore all twelve groups. Percentages show each nation’s overall tournament-winning probability.</p>
+      </div>
+      <div class="group-grid" id="groupGrid"></div>
+    </section>
+
+    <section class="method-section" id="method">
+      <div>
+        <p class="eyebrow">04 / MODEL CARD</p>
+        <h2>NO CRYSTAL BALL.<br>JUST <em>EVIDENCE.</em></h2>
+      </div>
+      <div class="method-grid">
+        <article><span>01</span><h3>Match history</h3><p>49,000+ completed internationals create leakage-safe rolling form and opponent-adjusted Elo.</p></article>
+        <article><span>02</span><h3>Machine learning</h3><p>Gradient boosting predicts outcomes while Poisson models estimate each team’s goal distribution.</p></article>
+        <article><span>03</span><h3>Squad layer</h3><p>EAFC26, Transfermarkt and current club data measure XI quality, depth and elite-player density.</p></article>
+        <article><span>04</span><h3>Simulation</h3><p>50,000 full tournament runs convert match uncertainty into probabilities that total exactly 100%.</p></article>
+      </div>
+      <div class="backtest-strip" id="backtestStrip"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="brand"><span class="brand-mark">26</span><span>WORLD<br>CUP LAB</span></div>
+    <p>Probabilities are estimates, not guarantees.<br>Model snapshot: June 7, 2026.</p>
+    <a href="#top">Back to top ↑</a>
+  </footer>
+
+  <aside class="team-drawer" id="teamDrawer" aria-hidden="true">
+    <button class="drawer-close" id="drawerClose" aria-label="Close team details">×</button>
+    <div id="drawerContent"></div>
+  </aside>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
