@@ -19,6 +19,7 @@
     </a>
     <nav aria-label="Dashboard sections">
       <a href="#forecast">Forecast</a>
+      <a href="#fixtures">Fixtures</a>
       <a href="#squads">Squads</a>
       <a href="#groups">Groups</a>
       <a href="#method">Method</a>
@@ -50,7 +51,7 @@
             <span id="heroElo">2165 Elo</span>
           </div>
         </div>
-        <div class="floating-stat stat-a"><span>50K</span> simulations</div>
+        <div class="floating-stat stat-a"><span id="simulationLabel">1M</span> simulations</div>
         <div class="floating-stat stat-b"><span>48</span> nations</div>
       </div>
     </section>
@@ -105,10 +106,35 @@
       </div>
     </section>
 
+    <section class="fixtures-section" id="fixtures">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / LIVE TOURNAMENT</p>
+          <h2>FIXTURES &<br>BRACKET</h2>
+        </div>
+        <div class="live-sync">
+          <span class="sync-status"><i id="syncDot"></i><b id="syncLabel">Connecting</b></span>
+          <span id="lastUpdated">Waiting for scores…</span>
+          <button id="refreshScores" type="button">Refresh ↻</button>
+        </div>
+      </div>
+
+      <div class="fixture-tabs" role="tablist" aria-label="Fixture views">
+        <button class="fixture-tab active" data-view="today" role="tab">Today</button>
+        <button class="fixture-tab" data-view="groups" role="tab">Group stage</button>
+        <button class="fixture-tab" data-view="bracket" role="tab">Knockout bracket</button>
+        <button class="fixture-tab" data-view="all" role="tab">All 104</button>
+      </div>
+
+      <div class="fixture-summary" id="fixtureSummary"></div>
+      <div class="fixture-view" id="fixtureView"></div>
+      <p class="fixture-source-note">Live results: WorldCup26 open API. Schedule cross-checked with FIFA. Times are shown in each venue’s local time.</p>
+    </section>
+
     <section class="dashboard-section split-section" id="squads">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">02 / PLAYER QUALITY</p>
+          <p class="eyebrow">03 / PLAYER QUALITY</p>
           <h2>SQUAD<br>INTELLIGENCE</h2>
         </div>
         <p>A position-balanced XI, 26-player depth, elite talent, market value and current club form shift the team-only forecast.</p>
@@ -128,7 +154,7 @@
     <section class="dashboard-section" id="groups">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">03 / GROUP STAGE</p>
+          <p class="eyebrow">04 / GROUP STAGE</p>
           <h2>THE DRAW</h2>
         </div>
         <p>Explore all twelve groups. Percentages show each nation’s overall tournament-winning probability.</p>
@@ -138,14 +164,14 @@
 
     <section class="method-section" id="method">
       <div>
-        <p class="eyebrow">04 / MODEL CARD</p>
+        <p class="eyebrow">05 / MODEL CARD</p>
         <h2>NO CRYSTAL BALL.<br>JUST <em>EVIDENCE.</em></h2>
       </div>
       <div class="method-grid">
         <article><span>01</span><h3>Match history</h3><p>49,000+ completed internationals create leakage-safe rolling form and opponent-adjusted Elo.</p></article>
         <article><span>02</span><h3>Machine learning</h3><p>Gradient boosting predicts outcomes while Poisson models estimate each team’s goal distribution.</p></article>
         <article><span>03</span><h3>Squad layer</h3><p>EAFC26, Transfermarkt and current club data measure XI quality, depth and elite-player density.</p></article>
-        <article><span>04</span><h3>Simulation</h3><p>50,000 full tournament runs convert match uncertainty into probabilities that total exactly 100%.</p></article>
+        <article><span>04</span><h3>Simulation</h3><p><strong id="simulationDescription">1,000,000</strong> full tournament runs convert match uncertainty into probabilities that total exactly 100%.</p></article>
       </div>
       <div class="backtest-strip" id="backtestStrip"></div>
     </section>
@@ -166,4 +192,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-

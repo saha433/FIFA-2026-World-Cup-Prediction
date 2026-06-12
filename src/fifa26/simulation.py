@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from itertools import combinations
+from math import exp, factorial
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,42 @@ class Standing:
     @property
     def goal_difference(self) -> int:
         return self.goals_for - self.goals_against
+
+
+@dataclass(frozen=True, slots=True)
+class MatchPrediction:
+    home_team: str
+    away_team: str
+    home_win_probability: float
+    draw_probability: float
+    away_win_probability: float
+    expected_home_goals: float
+    expected_away_goals: float
+    predicted_home_score: int
+    predicted_away_score: int
+
+    @property
+    def predicted_outcome(self) -> str:
+        probabilities = {
+            "home": self.home_win_probability,
+            "draw": self.draw_probability,
+            "away": self.away_win_probability,
+        }
+        return max(probabilities, key=probabilities.get)
+
+    def as_record(self) -> dict[str, object]:
+        return {
+            "home_team": self.home_team,
+            "away_team": self.away_team,
+            "home_win_probability": self.home_win_probability,
+            "draw_probability": self.draw_probability,
+            "away_win_probability": self.away_win_probability,
+            "expected_home_goals": self.expected_home_goals,
+            "expected_away_goals": self.expected_away_goals,
+            "predicted_home_score": self.predicted_home_score,
+            "predicted_away_score": self.predicted_away_score,
+            "predicted_outcome": self.predicted_outcome,
+        }
 
 
 def load_groups(path: str) -> dict[str, list[str]]:
@@ -93,6 +130,49 @@ class WorldCupSimulator:
             probabilities = self.bundle.outcome_model.predict_proba(x)[0]
             self._prediction_cache[key] = (home_mu, away_mu, probabilities)
         return self._prediction_cache[key]
+
+    @staticmethod
+    def _poisson_distribution(mean: float, max_goals: int = 10) -> np.ndarray:
+        probabilities = np.asarray(
+            [exp(-mean) * mean**goals / factorial(goals) for goals in range(max_goals + 1)]
+        )
+        probabilities[-1] += 1.0 - probabilities.sum()
+        return probabilities
+
+    def predict_match(self, home: str, away: str) -> MatchPrediction:
+        home = canonical_team(home)
+        away = canonical_team(away)
+        home_mu, away_mu, _ = self._prediction(home, away)
+        home_goals = self._poisson_distribution(home_mu)
+        away_goals = self._poisson_distribution(away_mu)
+        score_matrix = np.outer(home_goals, away_goals)
+        away_win = float(np.triu(score_matrix, 1).sum())
+        draw = float(np.trace(score_matrix))
+        home_win = float(np.tril(score_matrix, -1).sum())
+        predicted_home, predicted_away = np.unravel_index(
+            int(score_matrix.argmax()), score_matrix.shape
+        )
+        return MatchPrediction(
+            home_team=home,
+            away_team=away,
+            home_win_probability=home_win,
+            draw_probability=draw,
+            away_win_probability=away_win,
+            expected_home_goals=home_mu,
+            expected_away_goals=away_mu,
+            predicted_home_score=int(predicted_home),
+            predicted_away_score=int(predicted_away),
+        )
+
+    def predict_all_matchups(self) -> pd.DataFrame:
+        teams = sorted(team for group in self.groups.values() for team in group)
+        rows = [
+            self.predict_match(home, away).as_record()
+            for home in teams
+            for away in teams
+            if home != away
+        ]
+        return pd.DataFrame.from_records(rows)
 
     def knockout_winner(
         self, home: str, away: str, rng: np.random.Generator

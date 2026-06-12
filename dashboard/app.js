@@ -3,7 +3,25 @@ const state = {
   confederation: "ALL",
   search: "",
   showBaseline: false,
+  fixtures: [],
+  fixtureView: "today",
+  fixtureSource: "offline",
+  fixtureUpdatedAt: null,
 };
+
+const LIVE_FIXTURES_URL = "https://worldcup26.ir/get/games";
+const FIXTURE_POLL_MS = 30000;
+const BRACKET_SLOTS = {
+  73: ["2A", "2B"], 74: ["1E", "3A/B/C/D/F"], 75: ["1F", "2C"], 76: ["1C", "2F"],
+  77: ["1I", "3C/D/F/G/H"], 78: ["2E", "2I"], 79: ["1A", "3C/E/F/H/I"], 80: ["1L", "3E/H/I/J/K"],
+  81: ["1D", "3B/E/F/I/J"], 82: ["1G", "3A/E/H/I/J"], 83: ["2K", "2L"], 84: ["1H", "2J"],
+  85: ["1B", "3E/F/G/I/J"], 86: ["1J", "2H"], 87: ["1K", "3D/E/I/J/L"], 88: ["2D", "2G"],
+  89: ["W74", "W77"], 90: ["W73", "W75"], 91: ["W76", "W78"], 92: ["W79", "W80"],
+  93: ["W83", "W84"], 94: ["W81", "W82"], 95: ["W86", "W88"], 96: ["W85", "W87"],
+  97: ["W89", "W90"], 98: ["W93", "W94"], 99: ["W91", "W92"], 100: ["W95", "W96"],
+  101: ["W97", "W98"], 102: ["W99", "W100"], 103: ["L101", "L102"], 104: ["W101", "W102"],
+};
+const ROUND_LABELS = { r32: "Round of 32", r16: "Round of 16", qf: "Quarter-finals", sf: "Semi-finals", final: "Final" };
 
 const fmtPct = (value, digits = 2) => `${(value * 100).toFixed(digits)}%`;
 const fmtMoney = (value) => value >= 1e9 ? `€${(value / 1e9).toFixed(2)}B` : `€${Math.round(value / 1e6)}M`;
@@ -19,6 +37,8 @@ async function init() {
   renderGroups();
   renderBacktests();
   bindEvents();
+  await loadFixtures();
+  window.setInterval(() => loadFixtures(true), FIXTURE_POLL_MS);
 }
 
 function filteredTeams() {
@@ -35,6 +55,10 @@ function renderHero() {
   byId("heroProbability").innerHTML = `${(winner.probability * 100).toFixed(2)}<span>%</span>`;
   byId("heroSquad").textContent = `${winner.fc26_depth_rating.toFixed(2)} squad`;
   byId("heroElo").textContent = `${winner.elo} Elo`;
+  byId("simulationLabel").textContent = state.data.simulations >= 1e6
+    ? `${(state.data.simulations / 1e6).toFixed(0)}M`
+    : `${Math.round(state.data.simulations / 1e3)}K`;
+  byId("simulationDescription").textContent = state.data.simulations.toLocaleString();
 }
 
 function renderTicker() {
@@ -174,7 +198,256 @@ function bindEvents() {
   byId("methodButton").addEventListener("click", () => byId("method").scrollIntoView({ behavior: "smooth" }));
   byId("drawerClose").addEventListener("click", closeDrawer);
   byId("drawerBackdrop").addEventListener("click", closeDrawer);
+  byId("refreshScores").addEventListener("click", () => loadFixtures());
+  document.querySelectorAll(".fixture-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.fixtureView = button.dataset.view;
+      document.querySelectorAll(".fixture-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+      renderFixtures();
+    });
+  });
   document.addEventListener("keydown", (event) => event.key === "Escape" && closeDrawer());
+}
+
+function normalizeFixture(game) {
+  const id = Number(game.id);
+  const slots = BRACKET_SLOTS[id] || ["TBD", "TBD"];
+  const elapsed = String(game.time_elapsed || "notstarted").toLowerCase();
+  const finished = String(game.finished).toUpperCase() === "TRUE" || elapsed === "finished";
+  const live = !finished && elapsed !== "notstarted" && elapsed !== "scheduled";
+  return {
+    id,
+    home: game.home_team_name_en || slots[0],
+    away: game.away_team_name_en || slots[1],
+    homeScore: Number(game.home_score || 0),
+    awayScore: Number(game.away_score || 0),
+    group: game.group,
+    matchday: game.matchday,
+    localDate: game.local_date,
+    type: game.type,
+    status: finished ? "finished" : live ? "live" : "upcoming",
+    elapsed: finished ? "FT" : live ? game.time_elapsed : "Scheduled",
+    homeScorers: parseScorers(game.home_scorers),
+    awayScorers: parseScorers(game.away_scorers),
+  };
+}
+
+function parseScorers(value) {
+  if (!value || value === "null") return [];
+  return String(value).replace(/[{}”“"]/g, "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+async function loadFixtures(silent = false) {
+  if (!silent) setSyncState("loading", "Syncing live scores");
+  try {
+    const response = await fetch(`${LIVE_FIXTURES_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Live API returned ${response.status}`);
+    const payload = await response.json();
+    if (!payload.games || payload.games.length !== 104) throw new Error("Incomplete live fixture payload");
+    state.fixtures = resolveBracketSlots(payload.games.map(normalizeFixture).sort((a, b) => a.id - b.id));
+    state.fixtureSource = "live";
+    state.fixtureUpdatedAt = new Date();
+    localStorage.setItem("wc26-fixtures-cache", JSON.stringify(payload.games));
+    setSyncState("live", "Live scores connected");
+  } catch (error) {
+    let games = [];
+    try {
+      const cached = JSON.parse(localStorage.getItem("wc26-fixtures-cache") || "[]");
+      if (cached.length === 104) games = cached;
+    } catch (_) {}
+    if (!games.length) {
+      const fallback = await fetch("fixtures-fallback.json").then((response) => response.json());
+      games = fallback.games;
+    }
+    state.fixtures = resolveBracketSlots(games.map(normalizeFixture).sort((a, b) => a.id - b.id));
+    state.fixtureSource = "fallback";
+    state.fixtureUpdatedAt = new Date();
+    setSyncState("error", "Cached scores");
+  }
+  renderFixtures();
+}
+
+function resolveBracketSlots(fixtures) {
+  const byMatchId = new Map(fixtures.map((match) => [match.id, match]));
+  const resolve = (value) => {
+    const reference = /^([WL])(\d+)$/.exec(value);
+    if (!reference) return value;
+    const source = byMatchId.get(Number(reference[2]));
+    if (!source || source.status !== "finished" || source.homeScore === source.awayScore) return value;
+    const homeWon = source.homeScore > source.awayScore;
+    const winner = homeWon ? source.home : source.away;
+    const loser = homeWon ? source.away : source.home;
+    return reference[1] === "W" ? winner : loser;
+  };
+  return fixtures.map((match) => ({
+    ...match,
+    home: resolve(match.home),
+    away: resolve(match.away),
+  }));
+}
+
+function setSyncState(mode, label) {
+  const dot = byId("syncDot");
+  dot.className = mode === "live" ? "live" : mode === "error" ? "error" : "";
+  byId("syncLabel").textContent = label;
+  if (state.fixtureUpdatedAt) {
+    byId("lastUpdated").textContent = `Updated ${state.fixtureUpdatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+  }
+}
+
+function renderFixtures() {
+  if (!state.fixtures.length) return;
+  const finished = state.fixtures.filter((match) => match.status === "finished").length;
+  const live = state.fixtures.filter((match) => match.status === "live").length;
+  const goals = state.fixtures.filter((match) => match.status !== "upcoming").reduce((sum, match) => sum + match.homeScore + match.awayScore, 0);
+  byId("fixtureSummary").innerHTML = `
+    <div class="summary-stat"><span>COMPLETED</span><strong>${finished} / 104</strong></div>
+    <div class="summary-stat"><span>LIVE NOW</span><strong>${live}</strong></div>
+    <div class="summary-stat"><span>GOALS SCORED</span><strong>${goals}</strong></div>
+    <div class="summary-stat"><span>DATA FEED</span><strong>${state.fixtureSource === "live" ? "LIVE" : "CACHED"}</strong></div>`;
+
+  if (state.fixtureView === "bracket") {
+    renderBracket();
+    return;
+  }
+  let matches = state.fixtures;
+  if (state.fixtureView === "groups") matches = matches.filter((match) => match.type === "group");
+  if (state.fixtureView === "today") {
+    const today = localDateKey(new Date());
+    matches = matches.filter((match) => fixtureDateKey(match) === today);
+    if (!matches.length) {
+      const next = state.fixtures.find((match) => match.status !== "finished");
+      matches = next ? state.fixtures.filter((match) => fixtureDateKey(match) === fixtureDateKey(next)) : [];
+    }
+  }
+  renderFixtureList(matches);
+}
+
+function localDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function fixtureDateKey(match) {
+  const [datePart] = match.localDate.split(" ");
+  const [month, day, year] = datePart.split("/");
+  return `${year}-${month}-${day}`;
+}
+
+function formatFixtureDate(match) {
+  const [datePart] = match.localDate.split(" ");
+  const [month, day, year] = datePart.split("/");
+  return new Date(`${year}-${month}-${day}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+
+function renderFixtureList(matches) {
+  if (!matches.length) {
+    byId("fixtureView").innerHTML = `<div class="empty-fixtures"><strong>No matches here yet.</strong>Try another fixture view.</div>`;
+    return;
+  }
+  const grouped = matches.reduce((days, match) => {
+    const key = fixtureDateKey(match);
+    (days[key] ||= []).push(match);
+    return days;
+  }, {});
+  byId("fixtureView").innerHTML = `<div class="fixture-list">${Object.values(grouped).map((dayMatches) => `
+    <div class="fixture-date-heading">${formatFixtureDate(dayMatches[0])}</div>
+    ${dayMatches.map(matchCard).join("")}`).join("")}</div>`;
+}
+
+function matchCard(match) {
+  const decided = match.status === "finished" && match.homeScore !== match.awayScore;
+  const homeClass = decided ? (match.homeScore > match.awayScore ? "winner" : "loser") : "";
+  const awayClass = decided ? (match.awayScore > match.homeScore ? "winner" : "loser") : "";
+  const time = match.localDate.split(" ")[1] || "";
+  const score = match.status === "upcoming"
+    ? `<div class="match-score upcoming">${time}</div>`
+    : `<div class="match-score"><b>${match.homeScore}</b><span>—</span><b>${match.awayScore}</b></div>`;
+  const prediction = predictionFor(match);
+  return `<article class="match-card">
+    <div class="match-meta"><strong>Match ${match.id}</strong>${match.type === "group" ? `Group ${match.group}` : stageName(match.type)} · venue local</div>
+    <div class="match-team home ${homeClass}">${match.home}</div>
+    ${score}
+    <div class="match-team ${awayClass}">${match.away}</div>
+    <div class="match-state"><span class="status-badge ${match.status}">${match.elapsed}</span>${match.status === "finished" ? `<br>${[...match.homeScorers, ...match.awayScorers].slice(0, 2).join(" · ")}` : ""}</div>
+    ${prediction ? matchPredictionMarkup(match, prediction) : ""}
+  </article>`;
+}
+
+function canonicalPredictionTeam(team) {
+  const aliases = {
+    "Czechia": "Czech Republic",
+    "Democratic Republic of the Congo": "DR Congo",
+    "Türkiye": "Turkey",
+    "USA": "United States",
+  };
+  return aliases[team] || team;
+}
+
+function predictionFor(match) {
+  const home = canonicalPredictionTeam(match.home);
+  const away = canonicalPredictionTeam(match.away);
+  return state.data.match_predictions?.[`${home}|${away}`] || null;
+}
+
+function matchPredictionMarkup(match, prediction) {
+  const labels = {
+    home: canonicalPredictionTeam(match.home),
+    draw: "Draw",
+    away: canonicalPredictionTeam(match.away),
+  };
+  return `<div class="match-prediction">
+    <span class="prediction-label">MODEL FORECAST</span>
+    <strong>Lean ${labels[prediction.outcome]} · modal score ${prediction.home_score}–${prediction.away_score}</strong>
+    <div class="prediction-probabilities">
+      <span>${canonicalPredictionTeam(match.home)} <b>${fmtPct(prediction.home_win, 0)}</b></span>
+      <span>Draw <b>${fmtPct(prediction.draw, 0)}</b></span>
+      <span>${canonicalPredictionTeam(match.away)} <b>${fmtPct(prediction.away_win, 0)}</b></span>
+    </div>
+    <small>xG ${prediction.home_xg.toFixed(2)}–${prediction.away_xg.toFixed(2)}</small>
+  </div>`;
+}
+
+function stageName(type) {
+  return ROUND_LABELS[type] || (type === "third" ? "Third-place match" : "Knockout");
+}
+
+function renderBracket() {
+  const rounds = ["r32", "r16", "qf", "sf", "final"];
+  const columns = rounds.map((type) => {
+    const matches = state.fixtures.filter((match) => match.type === type);
+    return `<section class="bracket-round">
+      <div class="round-heading"><h3>${ROUND_LABELS[type]}</h3><span>${matches.length} ${matches.length === 1 ? "match" : "matches"}</span></div>
+      <div class="round-matches">${matches.map(bracketMatch).join("")}</div>
+    </section>`;
+  }).join("");
+  const third = state.fixtures.find((match) => match.type === "third");
+  const final = state.fixtures.find((match) => match.type === "final");
+  const champion = final?.status === "finished" && final.homeScore !== final.awayScore
+    ? (final.homeScore > final.awayScore ? final.home : final.away)
+    : "To be decided";
+  byId("fixtureView").innerHTML = `<div class="bracket-shell"><div class="bracket">${columns}
+    <section class="bracket-round">
+      <div class="round-heading"><h3>Podium</h3><span>July 18–19</span></div>
+      <div class="round-matches bracket-final-stack">${third ? bracketMatch(third) : ""}<div class="champion-card"><span>WORLD CHAMPION</span><strong>${champion}</strong></div></div>
+    </section>
+  </div></div>`;
+}
+
+function bracketMatch(match) {
+  const decided = match.status === "finished" && match.homeScore !== match.awayScore;
+  const homeWinner = decided && match.homeScore > match.awayScore;
+  const awayWinner = decided && match.awayScore > match.homeScore;
+  const scoreVisible = match.status !== "upcoming";
+  const prediction = predictionFor(match);
+  return `<article class="bracket-match">
+    <div class="bracket-meta"><span>M${match.id} · ${match.localDate.split(" ")[0]}</span><span class="${match.status}">${match.elapsed}</span></div>
+    <div class="bracket-team ${homeWinner ? "winner" : decided ? "loser" : ""}"><span class="${match.home.includes("/") || /^[WL]\\d/.test(match.home) ? "slot" : ""}">${match.home}</span><b>${scoreVisible ? match.homeScore : "—"}</b></div>
+    <div class="bracket-team ${awayWinner ? "winner" : decided ? "loser" : ""}"><span class="${match.away.includes("/") || /^[WL]\\d/.test(match.away) ? "slot" : ""}">${match.away}</span><b>${scoreVisible ? match.awayScore : "—"}</b></div>
+    ${prediction ? `<div class="bracket-prediction">MODEL LEAN ${prediction.outcome.toUpperCase()} · MODAL ${prediction.home_score}–${prediction.away_score} · ${fmtPct(Math.max(prediction.home_win, prediction.draw, prediction.away_win), 0)}</div>` : ""}
+  </article>`;
 }
 
 function bindTeamClicks() {
@@ -216,4 +489,3 @@ init().catch((error) => {
   console.error(error);
   document.body.innerHTML = `<main style="padding:40px;color:white"><h1>Dashboard data could not load.</h1><p>${error.message}</p></main>`;
 });
-
