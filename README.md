@@ -29,7 +29,7 @@ translates the combined score into a conservative, capped Elo adjustment.
 The first implemented model starts with match history. It creates
 pre-match Elo and rolling-form features, trains gradient-boosted outcome and
 Poisson goal models, backtests on the 2018 and 2022 World Cups, and simulates
-the 2026 tournament.
+the 2026 tournament. The current published forecast uses 1,000,000 runs.
 
 ## Run
 
@@ -45,6 +45,7 @@ Outputs are written to:
 - `outputs/backtest_metrics.csv`
 - `outputs/winner_probabilities.csv`
 - `outputs/winner_probabilities_baseline.csv`
+- `outputs/match_predictions.csv`
 - `outputs/squad_features.csv`
 - `outputs/model.pkl`
 
@@ -54,13 +55,17 @@ Generate the dashboard data after each model run:
 
 ```bash
 python dashboard/generate_data.py
+python dashboard/sync_fixtures.py
 python -m http.server 4173 -d dashboard
 ```
 
 Then open `http://localhost:4173`.
 
 The dashboard includes title probabilities, baseline comparison, full rankings,
-squad strength, group views, team detail panels and model backtest results.
+squad strength, group views, team detail panels, per-match outcome and score
+forecasts, and model backtest results.
+Its fixtures centre polls the live World Cup feed every 30 seconds and falls
+back to `dashboard/fixtures-fallback.json` when the provider is unavailable.
 
 ## Current limitations
 
@@ -74,4 +79,3 @@ squad strength, group views, team detail panels and model backtest results.
   dates after December 2025 and is not reliable for June 2026 availability.
 - Predictions should be refreshed after final squads, injuries and the final
   pre-tournament matches are available.
-

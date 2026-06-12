@@ -9,6 +9,7 @@ description = "Data-driven 2026 FIFA World Cup prediction pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "certifi>=2025.0",
   "numpy>=2.0",
   "pandas>=2.2",
   "scikit-learn>=1.5",
@@ -26,4 +27,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-

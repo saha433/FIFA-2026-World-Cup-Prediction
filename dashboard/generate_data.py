@@ -16,6 +16,7 @@ def main() -> None:
     squads = pd.read_csv(ROOT / "outputs/squad_features.csv")
     teams = pd.read_csv(ROOT / "archive-4/wc_2026_teams.csv")
     metrics = pd.read_csv(ROOT / "outputs/backtest_metrics.csv")
+    match_predictions = pd.read_csv(ROOT / "outputs/match_predictions.csv")
     elo = pd.read_csv(ROOT / "archive-3/elo_ratings_wc2026.csv")
 
     teams["team"] = teams["team"].replace(
@@ -70,12 +71,28 @@ def main() -> None:
 
     numeric_columns = combined.select_dtypes(include="number").columns
     combined[numeric_columns] = combined[numeric_columns].round(6)
+    prediction_numeric = match_predictions.select_dtypes(include="number").columns
+    match_predictions[prediction_numeric] = match_predictions[prediction_numeric].round(6)
+    matchup_payload = {
+        f"{row.home_team}|{row.away_team}": {
+            "home_win": row.home_win_probability,
+            "draw": row.draw_probability,
+            "away_win": row.away_win_probability,
+            "home_xg": row.expected_home_goals,
+            "away_xg": row.expected_away_goals,
+            "home_score": row.predicted_home_score,
+            "away_score": row.predicted_away_score,
+            "outcome": row.predicted_outcome,
+        }
+        for row in match_predictions.itertuples(index=False)
+    }
 
     payload = {
         "generated": "2026-06-07",
         "simulations": int(combined["simulated_titles"].sum()),
         "teams": json.loads(combined.to_json(orient="records")),
         "backtests": json.loads(metrics.round(6).to_json(orient="records")),
+        "match_predictions": matchup_payload,
     }
     OUT.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     print(f"Wrote {OUT} with {len(combined)} teams")

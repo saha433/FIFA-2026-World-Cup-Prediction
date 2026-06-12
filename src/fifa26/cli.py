@@ -46,10 +46,12 @@ def main() -> None:
     adjustments = dict(
         zip(squad_features["team"], squad_features["squad_elo_adjustment"])
     )
-    predictions = WorldCupSimulator(
-        bundle, groups, elo_adjustments=adjustments
-    ).simulate(args.runs, args.seed)
+    simulator = WorldCupSimulator(bundle, groups, elo_adjustments=adjustments)
+    predictions = simulator.simulate(args.runs, args.seed)
     predictions.to_csv(output_dir / "winner_probabilities.csv", index=False)
+    simulator.predict_all_matchups().to_csv(
+        output_dir / "match_predictions.csv", index=False
+    )
 
     print("Chronological World Cup backtests")
     for year, result in metrics.items():
